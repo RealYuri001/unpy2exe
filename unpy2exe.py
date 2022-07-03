@@ -49,14 +49,12 @@ PYTHON_MAGIC_WORDS = {
 def __timestamp():
     """Generate timestamp data for pyc header."""
     today = time.time()
-    ret = struct.pack(b'=L', int(today))
-    return ret
+    return struct.pack(b'=L', int(today))
 
 
 def __source_size(size):
     """Generate source code size data for pyc header."""
-    ret = struct.pack(b'=L', int(size))
-    return ret
+    return struct.pack(b'=L', int(size))
 
 
 def __current_magic():
@@ -66,12 +64,14 @@ def __current_magic():
 
 def _get_scripts_resource(pe):
     """Return the PYTHONSCRIPT resource entry."""
-    res = None
-    for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries:
-        if entry.name and entry.name.string == b"PYTHONSCRIPT":
-            res = entry.directory.entries[0].directory.entries[0]
-            break
-    return res
+    return next(
+        (
+            entry.directory.entries[0].directory.entries[0]
+            for entry in pe.DIRECTORY_ENTRY_RESOURCE.entries
+            if entry.name and entry.name.string == b"PYTHONSCRIPT"
+        ),
+        None,
+    )
 
 
 def _resource_dump(pe, res):
@@ -79,8 +79,7 @@ def _resource_dump(pe, res):
     rva = res.data.struct.OffsetToData
     size = res.data.struct.Size
 
-    dump = pe.get_data(rva, size)
-    return dump
+    return pe.get_data(rva, size)
 
 
 def _get_co_from_dump(data):
@@ -101,11 +100,7 @@ def _get_co_from_dump(data):
     logging.info("Archive name: %s", arcname or '-')
 
     code_bytes = data[current + 1:]
-    # verify code bytes count and metadata info
-    # assert(len(code_bytes) == metadata[3])
-
-    code_objects = marshal.loads(code_bytes)
-    return code_objects
+    return marshal.loads(code_bytes)
 
 
 def check_py2exe_file(pe):
@@ -146,17 +141,16 @@ def dump_to_pyc(co, python_version, output_dir):
     """Save given code_object as a .pyc file."""
     # assume Windows path information from the .exe
     pyc_basename = ntpath.basename(co.co_filename)
-    pyc_name = pyc_basename + '.pyc'
+    pyc_name = f'{pyc_basename}.pyc'
 
     if pyc_name not in IGNORE:
         logging.info("Extracting %s", pyc_name)
         pyc_header = _generate_pyc_header(python_version, len(co.co_code))
         destination = os.path.join(output_dir, pyc_name)
-        pyc = open(destination, 'wb')
-        pyc.write(pyc_header)
-        marshaled_code = marshal.dumps(co)
-        pyc.write(marshaled_code)
-        pyc.close()
+        with open(destination, 'wb') as pyc:
+            pyc.write(pyc_header)
+            marshaled_code = marshal.dumps(co)
+            pyc.write(marshaled_code)
     else:
         logging.info("Skipping %s", pyc_name)
 

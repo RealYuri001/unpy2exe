@@ -28,4 +28,4 @@ if __name__ == '__main__':
     try:
         unpy2exe(**args)
     except Exception as e:
-        print('There was an error:', str(e))
+        print('There was an error:', e)
